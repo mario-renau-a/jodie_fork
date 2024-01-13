@@ -16,3 +16,15 @@ project/boot/
 derby.log
 
 .bsp/
+/data/csv/._SUCCESS.crc
+/data/json/._SUCCESS.crc
+/data/json/.part-00000-3b2ef71b-0ec4-44a6-993a-ca49b289cb76-c000.json.crc
+/data/json/.part-00000-78e05706-b8ce-4a4e-a6a4-6d446536e5e5-c000.json.crc
+/data/csv/.part-00000-8008fd7a-ed76-47b1-b759-cb592359bf17-c000.csv.crc
+/data/csv/.part-00000-d814b322-0a9e-470c-8e99-f6ae459a671c-c000.csv.crc
+/data/csv/_SUCCESS
+/data/json/_SUCCESS
+/data/json/part-00000-3b2ef71b-0ec4-44a6-993a-ca49b289cb76-c000.json
+/data/json/part-00000-78e05706-b8ce-4a4e-a6a4-6d446536e5e5-c000.json
+/data/csv/part-00000-8008fd7a-ed76-47b1-b759-cb592359bf17-c000.csv
+/data/csv/part-00000-d814b322-0a9e-470c-8e99-f6ae459a671c-c000.csv

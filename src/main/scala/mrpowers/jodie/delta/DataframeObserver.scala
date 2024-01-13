@@ -1,14 +1,47 @@
 package mrpowers.jodie.delta
 
 import mrpowers.jodie.delta.ProtocolPrinter.protocolPrint
-import org.apache.spark.sql.functions.{count, mean, round, stddev}
-import org.apache.spark.sql.{DataFrame, Row, SparkSession, functions}
+import org.apache.spark.sql.functions.{array, column, lit, mean}
+import org.apache.spark.sql._
 
 import scala.Console.{BLUE, GREEN, RESET}
 
 // Observer Interface
 trait Observer extends Serializable {
   def update(df: DataFrame)
+}
+
+trait SingleColumnActionObserver extends Observer {
+  def updateAndReturn(df: DataFrame): DataFrame
+
+  def chainObservers(df: DataFrame, observers: List[SingleColumnActionObserver]): Unit = {
+    observers.foldLeft(df) {
+      (dataFrame, observer) => observer.updateAndReturn(dataFrame)
+    }
+  }
+
+
+}
+
+class UppercaseStringColumnsObserver extends SingleColumnActionObserver {
+  import org.apache.spark.sql.functions.upper
+  import org.apache.spark.sql.types.StringType
+
+  override def update(df: DataFrame): Unit = {
+    val result = updateAndReturn(df)
+    println("Modified DataFrame:\n")
+    result.show(5)
+    println("Made sure all string columns are uppercase.")
+  }
+
+  override def updateAndReturn(df: DataFrame): DataFrame = {
+    df.schema.fields.foldLeft(df) { (dfUpdated, structField) =>
+      structField.dataType match {
+        case StringType => dfUpdated.withColumn(structField.name, upper(dfUpdated(structField.name)))
+        case _ => dfUpdated
+      }
+    }
+  }
 }
 
 // Base Observer abstract class
@@ -40,7 +73,7 @@ class ProcessingTimeObserver extends SingleActionObserver {
 
 class NullValueCountObserver extends SingleActionObserver {
   override def action(df: DataFrame): Any = {
-    df.show(100,0)
+
     df.columns.map(colName => df.filter(df(colName).isNull).count()).sum
   }
 
@@ -66,11 +99,10 @@ class AverageObserver(colNames: Seq[String]) extends SingleActionObserver {
     }.mkString("\n")
 }
 
-class AgeRangeObserver(minAge: Int, maxAge: Int) extends SingleActionObserver {
-  import org.apache.spark.sql.functions.col
+class AgeRangeObserver(minAge: Int, maxAge: Int) extends SingleColumnActionObserver {
 
-  override def action(df: DataFrame): DataFrame = {
-    df.filter(col("age").between(minAge, maxAge))
+  override def action(column: Column): Column = {
+    column.between(minAge, maxAge)
   }
 
   override def message(result: Any): String = {
@@ -84,30 +116,6 @@ class AgeRangeObserver(minAge: Int, maxAge: Int) extends SingleActionObserver {
     result.show(5)
     println(message(result))
   }
-}
-
-class UppercaseStringColumnsObserver extends SingleActionObserver {
-  import org.apache.spark.sql.functions.col
-  import org.apache.spark.sql.functions.upper
-  import org.apache.spark.sql.types.StringType
-
-  override def update(df: DataFrame): Unit = {
-    val result = action(df)
-    println(s"Modified DataFrame:\n")
-    result.show(5) // Show the top 5 rows of the resulting DataFrame
-    println(message(result))
-  }
-
-  override def action(df: DataFrame): DataFrame = {
-    df.schema.fields.foldLeft(df) { (dfUpdated, structField) =>
-      structField.dataType match {
-        case StringType => dfUpdated.withColumn(structField.name, upper(col(structField.name)))
-        case _ => dfUpdated // Do nothing for non-string columns
-      }
-    }
-  }
-
-  override def message(result: Any): String = "Made sure all string columns are uppercase."
 }
 
 
@@ -182,14 +190,37 @@ object DataframeObserverApp extends App {
   protocolPrint("CSV Data Operations")
   val csvDataLoader = DataLoaderFactory.getDataLoader("csv")
   applyObservers(csvDataLoader, (dataLoader: BaseDataLoader, observer: Observer) => dataLoader.register(observer))
-  loadData(csvDataLoader, "data/csv.csv", Map("header" -> "true")).cache()
+  loadData(csvDataLoader, "data/csv", Map("header" -> "true")).cache()
   applyObservers(csvDataLoader, (dataLoader: BaseDataLoader, observer: Observer) => dataLoader.unregister(observer))
 
   protocolPrint("JSON Data Operations")
   val jsonDataLoader = DataLoaderFactory.getDataLoader("json")
   applyObservers(jsonDataLoader, (dataLoader: BaseDataLoader, observer: Observer) => dataLoader.register(observer))
-  loadData(jsonDataLoader, "data/j.json").cache()
+  loadData(jsonDataLoader, "data/json").cache()
   applyObservers(jsonDataLoader, (dataLoader: BaseDataLoader, observer: Observer) => dataLoader.unregister(observer))
 
   println(s"${GREEN}Operation Completed${RESET}")
+}
+
+object GenCSVApp extends App {
+  import org.apache.spark.sql.SparkSession
+  import org.apache.spark.sql.functions.rand
+
+  val spark = SparkSession.builder().appName("data generator").master("local").getOrCreate()
+
+  // Define the number of rows, adjust as needed
+  val numRows = 10000000
+
+  val ageRange = (18 to 100).toList // Define age range
+
+  // Generate numerical data and random name string
+  val df = spark.range(0, numRows)
+    .select((rand() * numRows).cast("int").alias("id"))
+    .withColumn("name", functions.concat(lit("Name_"), column("id")))
+    .withColumn("age", array(ageRange.map(lit(_)): _*)((rand() * (ageRange.size - 1)).cast("int")))
+
+  df.write.mode(SaveMode.Append).option("header", "true").csv("data/csv")
+
+  df.write.mode(SaveMode.Append).option("header", "true").json("data/json")
+  spark.stop()
 }
