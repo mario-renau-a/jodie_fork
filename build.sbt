@@ -3,9 +3,9 @@ organization := "com.github.mrpowers"
 
 version := "0.2.0"
 
-crossScalaVersions := Seq("2.12.17", "2.13.10")
+crossScalaVersions := Seq("2.12.18", "2.13.10")
 
-val sparkVersion = sys.env.getOrElse("SPARK_VERSION", "3.3.1")
+val sparkVersion = sys.env.getOrElse("SPARK_VERSION", "3.4.0")
 val deltaVersion = sys.env.getOrElse("DELTA_VERSION", "2.1.0")
 libraryDependencies += "org.apache.spark" %% "spark-sql" % sparkVersion % "provided"
 
@@ -13,7 +13,7 @@ libraryDependencies += "io.delta" %% "delta-core" % deltaVersion % "provided"
 libraryDependencies += "com.github.mrpowers" %% "spark-daria" % "1.2.3" % "test"
 libraryDependencies += "com.github.mrpowers" %% "spark-fast-tests" % "1.3.0" % "test"
 libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.15" % "test"
-libraryDependencies += "com.lihaoyi" %% "os-lib" % "0.7.1" % "test"
+libraryDependencies += "com.lihaoyi" %% "os-lib" % "0.9.1" % "test"
 
 // test suite settings
 fork in Test := true
